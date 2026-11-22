@@ -146,6 +146,13 @@ def stable_key(report_type, row, index, marketplace):
     prefix = "" if marketplace == "Meesho" else marketplace + "|"
     return hashlib.sha256((prefix + report_type + "|" + "|".join(meaningful)).encode()).hexdigest()
 
+def settlement_amount(row):
+    credit = as_num(first(row, "credit", "credit amount", "credited amount"))
+    debit = as_num(first(row, "debit", "debit amount", "debited amount"))
+    if credit is not None or debit is not None:
+        return (credit or 0) - (debit or 0)
+    return as_num(first(row, "amount", "settlement amount", "transaction amount", "net amount"))
+
 def insert_row(con, typ, row, import_id, idx, marketplace):
     key = stable_key(typ, row, idx, marketplace)
     row = dict(row)
@@ -173,7 +180,7 @@ def insert_row(con, typ, row, import_id, idx, marketplace):
         VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING""", (
             key, first(row,"transaction id","payment id","settlement id"), first(row,"order id"),
             first(row,"sub order no","sub order id"), first(row,"transaction type","type","description"),
-            as_num(first(row,"amount","settlement amount","transaction amount","credit","debit")),
+            settlement_amount(row),
             first(row,"transaction date","date","payment date","settlement date"), raw, import_id, marketplace))
     elif typ == "ads":
         cur = con.execute("""INSERT INTO ads
