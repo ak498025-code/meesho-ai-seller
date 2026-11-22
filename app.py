@@ -6,6 +6,7 @@ import pandas as pd
 from database import get_db
 from products import products_bp
 from sales import sales_bp
+from purchases import purchases_bp
 
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 ALLOWED_EXTENSIONS = {"csv", "xlsx", "xls"}
@@ -16,6 +17,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "change-this-before-deploying")
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
 app.register_blueprint(products_bp)
 app.register_blueprint(sales_bp)
+app.register_blueprint(purchases_bp)
 
 REPORT_ALIASES = {
     "orders": ["order id", "order_id", "sub order no", "sub order id", "sub_order_num", "order number"],
