@@ -8,6 +8,20 @@
 <article class="stat"><span>Gross product profit</span><strong class="{% if summary.gross_profit < 0 %}negative{% else %}positive{% endif %}">₹{{ "{:,.2f}".format(summary.gross_profit) }}</strong></article>
 </section>
 <div class="note analytics-note"><b>Important:</b> Gross product profit = recorded sales value − product cost. It does not yet deduct marketplace commission, shipping, GST, advertising, packaging, refunds or other expenses. New sales save product cost at the time of sale. Older sales use the current average product cost as an estimate.</div>
+<section class="panel">
+<div class="panel-head"><div><p class="eyebrow">IMPORTED MARKETPLACE REPORTS</p><h2>Marketplace-wise sales & estimated gross profit</h2><p class="muted">Meesho, Amazon and Flipkart report rows, matched to product costs using SKU.</p></div></div>
+<div class="table-wrap"><table><thead><tr><th>Marketplace</th><th>Report rows</th><th>Units</th><th>Revenue</th><th>Matched product cost</th><th>Estimated gross profit</th><th>Cost mapping gaps</th></tr></thead><tbody>
+{% for x in marketplace_summary %}<tr><td><b>{{ x.marketplace or 'Meesho (legacy)' }}</b></td><td>{{ x.report_rows }}</td><td>{{ x.units }}</td><td>₹{{ "{:,.2f}".format(x.revenue) }}</td><td>₹{{ "{:,.2f}".format(x.matched_cogs) }}</td><td class="{% if x.estimated_gross_profit < 0 %}negative{% else %}positive{% endif %}">₹{{ "{:,.2f}".format(x.estimated_gross_profit) }}</td><td>{{ x.unmatched_cost_rows }} unmatched · {{ x.missing_amount_rows }} missing amount</td></tr>
+{% else %}<tr><td colspan="7" class="empty">Import marketplace order reports to see marketplace-wise performance.</td></tr>{% endfor %}
+</tbody></table></div>
+<div class="note"><b>How to read this:</b> Revenue uses the imported report's mapped sale amount. Product cost is estimated only where the report SKU matches a product SKU in your catalogue. Rows without a matching SKU do not contribute to matched product cost. This is not net profit and does not deduct marketplace fees, shipping, advertising, refunds or settlement adjustments.</div>
+</section>
+<section class="panel"><div class="panel-head"><div><p class="eyebrow">PRODUCT PERFORMANCE BY MARKETPLACE</p><h2>Top imported products</h2><p class="muted">Up to 30 marketplace/SKU combinations ranked by reported revenue.</p></div></div>
+<div class="table-wrap"><table><thead><tr><th>Marketplace</th><th>SKU</th><th>Product</th><th>Units</th><th>Revenue</th><th>Matched product cost</th><th>Estimated gross profit</th></tr></thead><tbody>
+{% for x in marketplace_products %}<tr><td>{{ x.marketplace or 'Meesho (legacy)' }}</td><td><b>{{ x.sku or '—' }}</b></td><td>{{ x.product_name }}</td><td>{{ x.units }}</td><td>₹{{ "{:,.2f}".format(x.revenue) }}</td><td>₹{{ "{:,.2f}".format(x.matched_cogs) }}</td><td class="{% if x.estimated_gross_profit < 0 %}negative{% else %}positive{% endif %}">₹{{ "{:,.2f}".format(x.estimated_gross_profit) }}</td></tr>
+{% else %}<tr><td colspan="7" class="empty">No imported product rows available.</td></tr>{% endfor %}
+</tbody></table></div>
+</section>
 <section class="two-col">
 <section class="panel"><div class="panel-head"><div><p class="eyebrow">CHANNEL PERFORMANCE</p><h2>Sales by channel</h2></div></div>
 <div class="table-wrap"><table><thead><tr><th>Channel</th><th>Orders</th><th>Units</th><th>Revenue</th><th>Gross profit</th></tr></thead><tbody>
