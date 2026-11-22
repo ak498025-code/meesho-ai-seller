@@ -8,6 +8,22 @@
 <article class="stat"><span>Gross product profit</span><strong class="{% if summary.gross_profit < 0 %}negative{% else %}positive{% endif %}">₹{{ "{:,.2f}".format(summary.gross_profit) }}</strong></article>
 </section>
 <div class="note analytics-note"><b>Important:</b> Gross product profit = recorded sales value − product cost. It does not yet deduct marketplace commission, shipping, GST, advertising, packaging, refunds or other expenses. New sales save product cost at the time of sale. Older sales use the current average product cost as an estimate.</div>
+
+<section class="panel">
+<div class="panel-head"><div><p class="eyebrow">RECORDED BUSINESS PROFIT</p><h2>Net profit after recorded expenses</h2><p class="muted">Calculated only from entries saved in Sales and Expenses.</p></div><a class="text-link" href="{{ url_for('expenses.expenses_page') }}">Manage expenses →</a></div>
+<section class="stats analytics-stats">
+<article class="stat"><span>Recorded sales revenue</span><strong>₹{{ "{:,.2f}".format(recorded_profit.revenue) }}</strong></article>
+<article class="stat"><span>Product cost (COGS)</span><strong>₹{{ "{:,.2f}".format(recorded_profit.cogs) }}</strong></article>
+<article class="stat"><span>Gross product profit</span><strong>₹{{ "{:,.2f}".format(recorded_profit.gross_profit) }}</strong></article>
+<article class="stat"><span>Recorded expenses</span><strong>₹{{ "{:,.2f}".format(expense_summary.total) }}</strong></article>
+<article class="stat"><span>Net after recorded expenses</span><strong class="{% if recorded_net_profit < 0 %}negative{% else %}positive{% endif %}">₹{{ "{:,.2f}".format(recorded_net_profit) }}</strong></article>
+</section>
+<div class="note"><b>Coverage:</b> This figure uses manually recorded Sales entries only, minus all saved Expenses. Imported marketplace order reports are shown separately below and are not added here, to avoid mixing report estimates with recorded sales. Marketplace commissions, shipping, refunds, taxes and other costs are included only if they have been recorded as expenses and are not already reflected in settlement deductions. Shared expenses are included in the overall total but are not allocated to individual channels.</div>
+<div class="table-wrap"><table><thead><tr><th>Expense channel</th><th>Entries</th><th>Total</th></tr></thead><tbody>
+{% for x in expense_by_channel %}<tr><td>{{ x.channel }}</td><td>{{ x.entries }}</td><td>₹{{ "{:,.2f}".format(x.total) }}</td></tr>{% else %}<tr><td colspan="3" class="empty">No expenses recorded yet.</td></tr>{% endfor %}
+</tbody></table></div>
+</section>
+
 <section class="panel">
 <div class="panel-head"><div><p class="eyebrow">PAYMENT RECONCILIATION</p><h2>Marketplace settlement movements</h2><p class="muted">Imported settlement transactions grouped by marketplace.</p></div></div>
 <div class="table-wrap"><table><thead><tr><th>Marketplace</th><th>Transactions</th><th>Net settlement movement</th><th>Missing amounts</th></tr></thead><tbody>
