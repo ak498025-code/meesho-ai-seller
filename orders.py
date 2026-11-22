@@ -68,17 +68,18 @@ def new_order():
                 if not product: raise ValueError("Select a valid product.")
                 if int(product["stock"]) < quantity:
                     raise ValueError(f"Insufficient stock. Available: {product['stock']}.")
-                con.execute("""INSERT INTO managed_orders
+                order_cur = con.execute("""INSERT INTO managed_orders
                     (order_ref,channel,product_id,sku,product_name,quantity,selling_price,cost_at_order,status,
                      stock_deducted,stock_restored,notes,created_at,updated_at)
-                    VALUES (?,?,?,?,?,?,?,?, 'New', TRUE, FALSE, ?,?,?)""",
+                    VALUES (?,?,?,?,?,?,?,?, 'New', TRUE, FALSE, ?,?,?) RETURNING id""",
                     (order_ref,channel,product_id,product["sku"],product["name"],quantity,selling_price,
                      float(product["purchase_cost"] or 0),notes,now,now))
+                order_id = order_cur.fetchone()["id"]
                 con.execute("UPDATE products SET stock=stock-?,updated_at=? WHERE id=?", (quantity,now,product_id))
                 con.execute("""INSERT INTO stock_movements
                     (product_id,sku,movement_type,quantity,reference_type,reference_id,notes,created_at)
                     VALUES (?,?,?,?,?,?,?,?)""",
-                    (product_id,product["sku"],"ORDER",-quantity,"MANAGED_ORDER",None,"Order "+order_ref,now))
+                    (product_id,product["sku"],"ORDER",-quantity,"MANAGED_ORDER",order_id,"Order "+order_ref,now))
             flash("Order created and stock reserved successfully.", "success")
             return redirect(url_for("order_manager.orders_page"))
         except ValueError as e:
