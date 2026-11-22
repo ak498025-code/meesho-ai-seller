@@ -10,6 +10,7 @@ from purchases import purchases_bp
 from analytics import analytics_bp
 from calculator import calculator_bp
 from orders import orders_bp
+from unified_orders import unified_orders_bp
 
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 ALLOWED_EXTENSIONS = {"csv", "xlsx", "xls"}
@@ -24,6 +25,7 @@ app.register_blueprint(purchases_bp)
 app.register_blueprint(analytics_bp)
 app.register_blueprint(calculator_bp)
 app.register_blueprint(orders_bp)
+app.register_blueprint(unified_orders_bp)
 
 REPORT_ALIASES = {
     "orders": ["order id", "amazon order id", "merchant order id", "order item id", "sub order no", "sub order id", "sub_order_num", "order number"],
