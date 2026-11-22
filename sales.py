@@ -18,7 +18,8 @@ def init_sales_db():
             channel TEXT NOT NULL,
             payment_method TEXT NOT NULL,
             sold_at TEXT NOT NULL,
-            notes TEXT
+            notes TEXT,
+            cost_at_sale DOUBLE PRECISION
         );
         CREATE TABLE IF NOT EXISTS stock_movements (
             id BIGSERIAL PRIMARY KEY,
@@ -32,6 +33,8 @@ def init_sales_db():
             created_at TEXT NOT NULL
         );
         """)
+
+        con.execute("ALTER TABLE sales ADD COLUMN IF NOT EXISTS cost_at_sale DOUBLE PRECISION")
 
 init_sales_db()
 
@@ -69,9 +72,9 @@ def new_sale():
                     raise ValueError(f"Not enough stock. Available quantity: {product['stock']}.")
                 total = round(quantity * unit_price, 2)
                 cur = con.execute("""INSERT INTO sales
-                    (product_id,sku,product_name,quantity,unit_price,total_amount,channel,payment_method,sold_at,notes)
-                    VALUES (?,?,?,?,?,?,?,?,?,?) RETURNING id""",
-                    (product_id,product["sku"],product["name"],quantity,unit_price,total,channel,payment_method,now,notes))
+                    (product_id,sku,product_name,quantity,unit_price,total_amount,channel,payment_method,sold_at,notes,cost_at_sale)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?) RETURNING id""",
+                    (product_id,product["sku"],product["name"],quantity,unit_price,total,channel,payment_method,now,notes,float(product["purchase_cost"] or 0)))
                 sale_id = cur.fetchone()["id"]
                 con.execute("UPDATE products SET stock=stock-?, updated_at=? WHERE id=?", (quantity,now,product_id))
                 con.execute("""INSERT INTO stock_movements
