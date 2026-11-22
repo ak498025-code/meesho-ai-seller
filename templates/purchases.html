@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% block content %}
+<section class="hero compact"><div><p class="eyebrow">PURCHASE MANAGEMENT</p><h1>Purchases & Stock-In</h1><p>Record supplier purchases and automatically add the received quantity to inventory.</p></div><a class="button-link" href="{{ url_for('purchases.new_purchase') }}">+ Add purchase</a></section>
+<section class="stats sales-stats">
+<article class="stat"><span>Purchase entries</span><strong>{{ summary.count }}</strong></article>
+<article class="stat"><span>Units purchased</span><strong>{{ summary.units }}</strong></article>
+<article class="stat"><span>Total purchase value</span><strong>₹{{ "{:,.2f}".format(summary.total) }}</strong></article>
+</section>
+<section class="panel"><div class="panel-head"><div><p class="eyebrow">PURCHASE REGISTER</p><h2>Recent purchases</h2><p class="muted">Showing the latest 100 entries. Each saved purchase increases stock once.</p></div></div>
+<div class="table-wrap"><table><thead><tr><th>Date</th><th>SKU</th><th>Product</th><th>Qty added</th><th>Unit cost</th><th>Total</th><th>Supplier</th><th>Invoice</th></tr></thead><tbody>
+{% for p in purchases %}<tr><td>{{ p.purchased_at[:16].replace("T"," ") }}</td><td><b>{{ p.sku }}</b></td><td>{{ p.product_name }}</td><td>{{ p.quantity }}</td><td>₹{{ "{:,.2f}".format(p.unit_cost) }}</td><td><b>₹{{ "{:,.2f}".format(p.total_amount) }}</b></td><td>{{ p.supplier or "—" }}</td><td>{{ p.invoice_number or "—" }}</td></tr>
+{% else %}<tr><td colspan="8" class="empty">No purchases recorded yet. Click “Add purchase” to record incoming stock.</td></tr>{% endfor %}
+</tbody></table></div></section>{% endblock %}
