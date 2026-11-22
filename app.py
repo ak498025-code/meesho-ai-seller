@@ -1,13 +1,12 @@
-import os, csv, io, json, hashlib, sqlite3
+import os, io, json, hashlib
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from werkzeug.utils import secure_filename
 import pandas as pd
+from database import get_db
 from products import products_bp
 
-APP_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.environ.get("DATABASE_PATH", os.path.join(APP_DIR, "seller_data.db"))
-UPLOAD_DIR = os.path.join(APP_DIR, "uploads")
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 ALLOWED_EXTENSIONS = {"csv", "xlsx", "xls"}
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -24,51 +23,47 @@ REPORT_ALIASES = {
     "inventory": ["sku", "supplier sku", "product sku", "catalogue id", "product name"]
 }
 
-def db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
 def init_db():
-    with db() as con:
+    with get_db() as con:
         con.executescript("""
         CREATE TABLE IF NOT EXISTS imports (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id BIGSERIAL PRIMARY KEY,
             filename TEXT NOT NULL, report_type TEXT NOT NULL,
             rows_seen INTEGER NOT NULL DEFAULT 0, rows_added INTEGER NOT NULL DEFAULT 0,
             rows_skipped INTEGER NOT NULL DEFAULT 0, file_hash TEXT NOT NULL,
             imported_at TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS orders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, external_key TEXT UNIQUE,
+            id BIGSERIAL PRIMARY KEY, external_key TEXT UNIQUE,
             order_id TEXT, sub_order_id TEXT, sku TEXT, product_name TEXT,
-            quantity REAL, order_status TEXT, order_date TEXT, sale_amount REAL,
-            raw_json TEXT, import_id INTEGER
+            quantity DOUBLE PRECISION, order_status TEXT, order_date TEXT, sale_amount DOUBLE PRECISION,
+            raw_json TEXT, import_id BIGINT
         );
         CREATE TABLE IF NOT EXISTS returns (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, external_key TEXT UNIQUE,
+            id BIGSERIAL PRIMARY KEY, external_key TEXT UNIQUE,
             order_id TEXT, sub_order_id TEXT, sku TEXT, return_status TEXT,
-            return_reason TEXT, quantity REAL, return_date TEXT, raw_json TEXT,
-            import_id INTEGER
+            return_reason TEXT, quantity DOUBLE PRECISION, return_date TEXT, raw_json TEXT,
+            import_id BIGINT
         );
         CREATE TABLE IF NOT EXISTS settlements (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, external_key TEXT UNIQUE,
+            id BIGSERIAL PRIMARY KEY, external_key TEXT UNIQUE,
             transaction_id TEXT, order_id TEXT, sub_order_id TEXT,
-            transaction_type TEXT, amount REAL, transaction_date TEXT,
-            raw_json TEXT, import_id INTEGER
+            transaction_type TEXT, amount DOUBLE PRECISION, transaction_date TEXT,
+            raw_json TEXT, import_id BIGINT
         );
         CREATE TABLE IF NOT EXISTS ads (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, external_key TEXT UNIQUE,
-            campaign_name TEXT, campaign_id TEXT, spend REAL, impressions REAL,
-            clicks REAL, attributed_sales REAL, report_date TEXT, raw_json TEXT,
-            import_id INTEGER
+            id BIGSERIAL PRIMARY KEY, external_key TEXT UNIQUE,
+            campaign_name TEXT, campaign_id TEXT, spend DOUBLE PRECISION, impressions DOUBLE PRECISION,
+            clicks DOUBLE PRECISION, attributed_sales DOUBLE PRECISION, report_date TEXT, raw_json TEXT,
+            import_id BIGINT
         );
         CREATE TABLE IF NOT EXISTS inventory (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, external_key TEXT UNIQUE,
-            sku TEXT, product_name TEXT, available_stock REAL, price REAL,
-            raw_json TEXT, import_id INTEGER
+            id BIGSERIAL PRIMARY KEY, external_key TEXT UNIQUE,
+            sku TEXT, product_name TEXT, available_stock DOUBLE PRECISION, price DOUBLE PRECISION,
+            raw_json TEXT, import_id BIGINT
         );
         """)
+
 init_db()
 
 def norm(s):
@@ -118,9 +113,8 @@ def read_report(file_storage):
     elif ext in ("xlsx", "xls"):
         df = pd.read_excel(io.BytesIO(raw), dtype=str)
     else:
-        raise ValueError("Please upload a CSV or Excel file.")
-    df = df.fillna("")
-    return name, digest, df
+        raise ValueError("Please upload a CSV or Excel report.")
+    return name, digest, df.fillna("")
 
 def stable_key(report_type, row, index):
     key_fields = {
@@ -140,49 +134,49 @@ def insert_row(con, typ, row, import_id, idx):
     key = stable_key(typ, row, idx)
     raw = json.dumps({str(k): str(v) for k, v in row.items()}, ensure_ascii=False)
     if typ == "orders":
-        con.execute("""INSERT OR IGNORE INTO orders
+        cur = con.execute("""INSERT INTO orders
         (external_key,order_id,sub_order_id,sku,product_name,quantity,order_status,order_date,sale_amount,raw_json,import_id)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?)""", (
+        VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING""", (
             key, first(row,"order id","order number"), first(row,"sub order no","sub order id"),
             first(row,"sku","supplier sku","product sku"), first(row,"product name","product"),
             as_num(first(row,"quantity","qty")), first(row,"order status","status"),
             first(row,"order date","created date"), as_num(first(row,"supplier listed price","product price","sale amount","total amount")), raw, import_id))
     elif typ == "returns":
-        con.execute("""INSERT OR IGNORE INTO returns
+        cur = con.execute("""INSERT INTO returns
         (external_key,order_id,sub_order_id,sku,return_status,return_reason,quantity,return_date,raw_json,import_id)
-        VALUES (?,?,?,?,?,?,?,?,?,?)""", (
+        VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING""", (
             key, first(row,"order id"), first(row,"sub order no","sub order id"),
             first(row,"sku","supplier sku"), first(row,"return status","status"),
             first(row,"return reason","reason"), as_num(first(row,"quantity","qty")),
             first(row,"return date","created date"), raw, import_id))
     elif typ == "settlements":
-        con.execute("""INSERT OR IGNORE INTO settlements
+        cur = con.execute("""INSERT INTO settlements
         (external_key,transaction_id,order_id,sub_order_id,transaction_type,amount,transaction_date,raw_json,import_id)
-        VALUES (?,?,?,?,?,?,?,?,?)""", (
+        VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING""", (
             key, first(row,"transaction id","payment id","settlement id"), first(row,"order id"),
             first(row,"sub order no","sub order id"), first(row,"transaction type","type","description"),
             as_num(first(row,"amount","settlement amount","transaction amount","credit","debit")),
             first(row,"transaction date","date","payment date"), raw, import_id))
     elif typ == "ads":
-        con.execute("""INSERT OR IGNORE INTO ads
+        cur = con.execute("""INSERT INTO ads
         (external_key,campaign_name,campaign_id,spend,impressions,clicks,attributed_sales,report_date,raw_json,import_id)
-        VALUES (?,?,?,?,?,?,?,?,?,?)""", (
+        VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING""", (
             key, first(row,"campaign name","campaign"), first(row,"campaign id"),
             as_num(first(row,"ad spend","advertisement cost","spend","cost")),
             as_num(first(row,"impressions")), as_num(first(row,"clicks")),
             as_num(first(row,"attributed sales","sales","revenue")), first(row,"date","report date"), raw, import_id))
     elif typ == "inventory":
-        con.execute("""INSERT OR IGNORE INTO inventory
+        cur = con.execute("""INSERT INTO inventory
         (external_key,sku,product_name,available_stock,price,raw_json,import_id)
-        VALUES (?,?,?,?,?,?,?)""", (
+        VALUES (?,?,?,?,?,?,?) ON CONFLICT DO NOTHING""", (
             key, first(row,"sku","supplier sku","product sku"), first(row,"product name","product"),
             as_num(first(row,"available stock","stock","inventory","quantity")),
             as_num(first(row,"price","selling price")), raw, import_id))
-    return con.execute("SELECT changes()").fetchone()[0] == 1
+    return cur.rowcount == 1
 
 @app.route("/")
 def dashboard():
-    with db() as con:
+    with get_db() as con:
         stats = {}
         for table, label in [("orders","orders"),("returns","returns"),("settlements","settlements"),("ads","ad reports"),("inventory","inventory rows")]:
             stats[label] = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
@@ -204,18 +198,18 @@ def upload():
         typ = detect_report(df.columns) if selected == "auto" else selected
         if typ not in {"orders","returns","settlements","ads","inventory"}:
             raise ValueError("Could not identify this report. Select its report type manually.")
-        with db() as con:
+        with get_db() as con:
             exists = con.execute("SELECT id FROM imports WHERE file_hash=?", (digest,)).fetchone()
             if exists:
                 flash("This exact file was already imported. Duplicate upload skipped.", "warning")
                 return redirect(url_for("dashboard"))
-            cur = con.execute("INSERT INTO imports(filename,report_type,rows_seen,rows_added,rows_skipped,file_hash,imported_at) VALUES(?,?,?,?,?,?,?)",
+            cur = con.execute("""INSERT INTO imports(filename,report_type,rows_seen,rows_added,rows_skipped,file_hash,imported_at)
+                VALUES(?,?,?,?,?,?,?) RETURNING id""",
                 (filename,typ,len(df),0,0,digest,datetime.now().isoformat(timespec="seconds")))
-            import_id = cur.lastrowid
+            import_id = cur.fetchone()["id"]
             added = 0
             for idx, series in df.iterrows():
-                row = series.to_dict()
-                if insert_row(con, typ, row, import_id, idx):
+                if insert_row(con, typ, series.to_dict(), import_id, idx):
                     added += 1
             skipped = len(df) - added
             con.execute("UPDATE imports SET rows_added=?,rows_skipped=? WHERE id=?", (added,skipped,import_id))
@@ -226,13 +220,19 @@ def upload():
 
 @app.route("/imports")
 def imports_page():
-    with db() as con:
+    with get_db() as con:
         rows = con.execute("SELECT * FROM imports ORDER BY id DESC").fetchall()
     return render_template("imports.html", imports=rows)
 
 @app.route("/health")
 def health():
-    return jsonify({"status":"ok","service":"Meesho AI Seller Control Center","database":"connected"})
+    try:
+        with get_db() as con:
+            con.execute("SELECT 1")
+        return jsonify({"status":"ok","service":"Meesho AI Seller Control Center","database":"connected"})
+    except Exception:
+        app.logger.exception("Database health check failed")
+        return jsonify({"status":"error","service":"Meesho AI Seller Control Center","database":"disconnected"}), 503
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
