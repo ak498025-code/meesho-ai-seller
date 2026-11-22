@@ -1,27 +1,20 @@
-import os
-import sqlite3
 from datetime import datetime
+import psycopg2
 from flask import Blueprint, render_template, request, redirect, url_for, flash
+from database import get_db
 
-APP_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.environ.get("DATABASE_PATH", os.path.join(APP_DIR, "seller_data.db"))
 products_bp = Blueprint("products", __name__)
 
-def product_db():
-    con = sqlite3.connect(DB_PATH)
-    con.row_factory = sqlite3.Row
-    return con
-
 def init_products_db():
-    with product_db() as con:
+    with get_db() as con:
         con.execute("""
             CREATE TABLE IF NOT EXISTS products (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                sku TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                id BIGSERIAL PRIMARY KEY,
+                sku TEXT NOT NULL UNIQUE,
                 name TEXT NOT NULL,
                 category TEXT,
-                purchase_cost REAL NOT NULL DEFAULT 0,
-                selling_price REAL NOT NULL DEFAULT 0,
+                purchase_cost DOUBLE PRECISION NOT NULL DEFAULT 0,
+                selling_price DOUBLE PRECISION NOT NULL DEFAULT 0,
                 stock INTEGER NOT NULL DEFAULT 0,
                 reorder_level INTEGER NOT NULL DEFAULT 0,
                 supplier TEXT,
@@ -56,10 +49,10 @@ def read_product_form():
 @products_bp.route("/products")
 def products_page():
     q = request.args.get("q", "").strip()
-    with product_db() as con:
+    with get_db() as con:
         if q:
             rows = con.execute(
-                "SELECT * FROM products WHERE sku LIKE ? OR name LIKE ? OR category LIKE ? ORDER BY name",
+                "SELECT * FROM products WHERE sku ILIKE ? OR name ILIKE ? OR category ILIKE ? ORDER BY name",
                 (f"%{q}%", f"%{q}%", f"%{q}%")
             ).fetchall()
         else:
@@ -72,7 +65,7 @@ def new_product():
         try:
             p = read_product_form()
             now = datetime.now().isoformat(timespec="seconds")
-            with product_db() as con:
+            with get_db() as con:
                 con.execute("""INSERT INTO products
                     (sku,name,category,purchase_cost,selling_price,stock,reorder_level,supplier,created_at,updated_at)
                     VALUES (?,?,?,?,?,?,?,?,?,?)""",
@@ -80,7 +73,7 @@ def new_product():
                      p["stock"],p["reorder_level"],p["supplier"],now,now))
             flash("Product added successfully.", "success")
             return redirect(url_for("products.products_page"))
-        except sqlite3.IntegrityError:
+        except psycopg2.IntegrityError:
             flash("That SKU already exists. Use a unique SKU.", "error")
         except ValueError as e:
             flash(str(e), "error")
@@ -88,7 +81,7 @@ def new_product():
 
 @products_bp.route("/products/<int:product_id>/edit", methods=["GET", "POST"])
 def edit_product(product_id):
-    with product_db() as con:
+    with get_db() as con:
         existing = con.execute("SELECT * FROM products WHERE id=?", (product_id,)).fetchone()
     if not existing:
         flash("Product not found.", "error")
@@ -97,14 +90,14 @@ def edit_product(product_id):
         try:
             p = read_product_form()
             now = datetime.now().isoformat(timespec="seconds")
-            with product_db() as con:
+            with get_db() as con:
                 con.execute("""UPDATE products SET sku=?,name=?,category=?,purchase_cost=?,selling_price=?,
                     stock=?,reorder_level=?,supplier=?,updated_at=? WHERE id=?""",
                     (p["sku"],p["name"],p["category"],p["purchase_cost"],p["selling_price"],
                      p["stock"],p["reorder_level"],p["supplier"],now,product_id))
             flash("Product updated successfully.", "success")
             return redirect(url_for("products.products_page"))
-        except sqlite3.IntegrityError:
+        except psycopg2.IntegrityError:
             flash("That SKU belongs to another product. Use a unique SKU.", "error")
         except ValueError as e:
             flash(str(e), "error")
@@ -112,7 +105,7 @@ def edit_product(product_id):
 
 @products_bp.route("/products/<int:product_id>/delete", methods=["POST"])
 def delete_product(product_id):
-    with product_db() as con:
+    with get_db() as con:
         con.execute("DELETE FROM products WHERE id=?", (product_id,))
     flash("Product deleted.", "success")
     return redirect(url_for("products.products_page"))
