@@ -32,3 +32,15 @@
 .inventory-kpis b{font-size:14px;text-align:right}
 @media(max-width:950px){.analytics-stats{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:650px){.analytics-stats{grid-template-columns:repeat(2,1fr)}.inventory-kpis div{align-items:flex-start;flex-direction:column}.inventory-kpis b{text-align:left}}
+
+/* Marketplace profit calculator */
+.calculator-layout{display:grid;grid-template-columns:1.15fr .85fr;gap:18px;align-items:start}
+.calculator-layout .form-grid{margin-top:8px}
+.calculator-layout .form-grid input{width:100%;padding:12px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);font:inherit}
+.result-panel{position:sticky;top:92px}
+.profit-number{font-size:38px;font-weight:850;letter-spacing:-1px;margin:12px 0 0}
+.profit-caption{font-size:12px;color:var(--muted);margin-bottom:22px}
+.result-lines>div{display:flex;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid var(--line);font-size:13px}
+.result-lines span{color:var(--muted)}
+.button-secondary{background:#f1edff;color:var(--purple)}
+@media(max-width:850px){.calculator-layout{grid-template-columns:1fr}.result-panel{position:static}}
