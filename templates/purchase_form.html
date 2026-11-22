@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block content %}
+<section class="hero compact"><div><p class="eyebrow">PURCHASE MANAGEMENT</p><h1>Record a purchase</h1><p>Enter the received quantity and supplier cost. Stock will increase automatically after saving.</p></div></section>
+<section class="panel form-panel"><form method="post" class="product-form">
+<div class="form-grid">
+<label>Product *<select name="product_id" required><option value="">Choose a product</option>{% for p in products %}<option value="{{ p.id }}">{{ p.name }} · {{ p.sku }} · Current stock: {{ p.stock }}</option>{% endfor %}</select></label>
+<label>Quantity received *<input type="number" name="quantity" min="1" step="1" required value="1"></label>
+<label>Purchase cost per unit (₹) *<input type="number" name="unit_cost" min="0" step="0.01" required value="0"></label>
+<label>Supplier<input name="supplier" maxlength="160" placeholder="Supplier name (optional)"></label>
+<label>Invoice / Bill number<input name="invoice_number" maxlength="100" placeholder="e.g. INV-1024"></label>
+<label>Notes (optional)<input name="notes" maxlength="300" placeholder="Freight, batch or other details"></label>
+</div>
+<div class="note"><b>Automatic stock update:</b> Saving adds the received quantity to the selected product. The product purchase cost is recalculated as a weighted average of existing stock and this purchase. The purchase is also saved in stock movement history.</div>
+<div class="form-actions"><a class="text-link" href="{{ url_for('purchases.purchases_page') }}">Cancel</a><button type="submit" {% if not products %}disabled{% endif %}>Save purchase & add stock</button></div>
+</form></section>{% endblock %}
