@@ -81,6 +81,18 @@ def analytics_page():
             GROUP BY o.marketplace, o.sku
             ORDER BY revenue DESC NULLS LAST LIMIT 30
         """).fetchall()
+        settlement_summary = con.execute("""
+            SELECT marketplace, COUNT(*) AS transaction_rows,
+                   COALESCE(SUM(amount),0) AS net_movement,
+                   COUNT(*) FILTER (WHERE amount IS NULL) AS missing_amount_rows
+            FROM settlements GROUP BY marketplace ORDER BY marketplace
+        """).fetchall()
+        settlement_types = con.execute("""
+            SELECT marketplace, COALESCE(transaction_type,'Unclassified') AS transaction_type,
+                   COUNT(*) AS rows, COALESCE(SUM(amount),0) AS amount
+            FROM settlements GROUP BY marketplace, transaction_type
+            ORDER BY marketplace, amount DESC
+        """).fetchall()
         low_stock = con.execute("""
             SELECT sku, name, stock, reorder_level
             FROM products WHERE stock <= reorder_level ORDER BY stock ASC, name LIMIT 20
@@ -91,6 +103,6 @@ def analytics_page():
     return render_template(
         "analytics.html", summary=summary, daily=daily, monthly=monthly,
         by_channel=by_channel, by_product=by_product, low_stock=low_stock,
-        marketplace_summary=marketplace_summary, marketplace_products=marketplace_products,
+        marketplace_summary=marketplace_summary, marketplace_products=marketplace_products,\n        settlement_summary=settlement_summary, settlement_types=settlement_types,
         total_purchase=total_purchase, inventory=inventory
     )
