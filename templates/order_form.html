@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero compact"><div><p class="eyebrow">ORDER OPERATIONS</p><h1>Create an order</h1><p>Reserve stock and track the order from new to delivered, cancelled or returned.</p></div><div class="hero-icon">▤</div></section>
+<section class="panel">
+<form method="post" class="product-form">
+<div class="form-grid">
+<label>Order ID / Sub-order ID<input name="order_ref" required maxlength="120" placeholder="e.g. 123456789"></label>
+<label>Sales channel<select name="channel" required>{% for c in channels %}<option value="{{ c }}">{{ c }}</option>{% endfor %}</select></label>
+<label>Product<select name="product_id" id="productSelect" required><option value="">Choose product</option>{% for p in products %}<option value="{{ p.id }}" data-stock="{{ p.stock }}" data-price="{{ p.selling_price }}"> {{ p.sku }} — {{ p.name }} (stock: {{ p.stock }})</option>{% endfor %}</select></label>
+<label>Quantity<input type="number" name="quantity" min="1" value="1" required></label>
+<label>Selling price per unit (₹)<input type="number" name="selling_price" id="sellingPrice" min="0" step="0.01" value="0" required></label>
+<label>Notes<input name="notes" placeholder="Optional notes"></label>
+</div>
+<p class="note">Creating an order immediately deducts the quantity from available stock. Cancelling restores it automatically. For returns, stock is restored only when you mark the returned item as sellable and choose “Yes”.</p>
+<div class="form-actions"><a class="text-link" href="{{ url_for('order_manager.orders_page') }}">Cancel</a><button type="submit">Create order & reserve stock</button></div>
+</form>
+</section>
+<script>
+document.getElementById("productSelect").addEventListener("change",function(){const o=this.options[this.selectedIndex];document.getElementById("sellingPrice").value=o.dataset.price||0;});
+</script>
+{% endblock %}
