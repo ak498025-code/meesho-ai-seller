@@ -30,6 +30,7 @@
 {% for x in settlement_summary %}<tr><td><b>{{ x.marketplace or 'Meesho (legacy)' }}</b></td><td>{{ x.transaction_rows }}</td><td class="{% if x.net_movement < 0 %}negative{% else %}positive{% endif %}">₹{{ "{:,.2f}".format(x.net_movement) }}</td><td>{{ x.missing_amount_rows }}</td></tr>
 {% else %}<tr><td colspan="4" class="empty">No settlement reports imported yet. Import a Settlements / Payments report for each marketplace.</td></tr>{% endfor %}
 </tbody></table></div>
+<div class="panel-head" style="margin-top:22px"><div><p class="eyebrow">SETTLEMENT DETAILS</p><h2>Settlement transaction type breakdown</h2><p class="muted">Credits, deductions and other adjustment categories from the imported settlement report.</p></div></div>
 <div class="table-wrap"><table><thead><tr><th>Marketplace</th><th>Transaction type</th><th>Rows</th><th>Signed amount total</th></tr></thead><tbody>
 {% for x in settlement_types %}<tr><td>{{ x.marketplace or 'Meesho (legacy)' }}</td><td>{{ x.transaction_type }}</td><td>{{ x.rows }}</td><td>₹{{ "{:,.2f}".format(x.amount) }}</td></tr>
 {% else %}<tr><td colspan="4" class="empty">Transaction type breakdown will appear after settlement imports.</td></tr>{% endfor %}
