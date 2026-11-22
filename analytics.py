@@ -29,6 +29,24 @@ def analytics_page():
                    COUNT(*) FILTER (WHERE cost_at_sale IS NULL) AS missing_cost_rows
             FROM sales
         """).fetchone()
+        recorded_profit = con.execute("""
+            SELECT COUNT(*) AS sale_entries,
+                   COALESCE(SUM(total_amount),0) AS revenue,
+                   COALESCE(SUM(quantity * COALESCE(cost_at_sale,0)),0) AS cogs,
+                   COALESCE(SUM(total_amount - quantity * COALESCE(cost_at_sale,0)),0) AS gross_profit
+            FROM sales
+        """).fetchone()
+        expense_summary = con.execute("""
+            SELECT COALESCE(SUM(amount),0) AS total,
+                   COALESCE(SUM(amount) FILTER (WHERE channel='Shared'),0) AS shared,
+                   COUNT(*) AS entries
+            FROM expenses
+        """).fetchone()
+        expense_by_channel = con.execute("""
+            SELECT channel, COALESCE(SUM(amount),0) AS total, COUNT(*) AS entries
+            FROM expenses GROUP BY channel ORDER BY total DESC
+        """).fetchall()
+        recorded_net_profit = float(recorded_profit["gross_profit"] or 0) - float(expense_summary["total"] or 0)
         daily = con.execute("""
             SELECT sold_at::date AS day, SUM(total_amount) AS revenue,
                    SUM(quantity * COALESCE(cost_at_sale,0)) AS cogs,
@@ -105,5 +123,7 @@ def analytics_page():
         by_channel=by_channel, by_product=by_product, low_stock=low_stock,
         marketplace_summary=marketplace_summary, marketplace_products=marketplace_products,
         settlement_summary=settlement_summary, settlement_types=settlement_types,
-        total_purchase=total_purchase, inventory=inventory
+        total_purchase=total_purchase, inventory=inventory,
+        recorded_profit=recorded_profit, expense_summary=expense_summary,
+        expense_by_channel=expense_by_channel, recorded_net_profit=recorded_net_profit
     )
