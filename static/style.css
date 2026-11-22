@@ -20,3 +20,15 @@
 .product-form select{width:100%;padding:12px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);font:inherit}
 .product-form select:disabled{background:#f3f4f6;color:#98a2b3}
 @media(max-width:650px){.sales-stats{grid-template-columns:1fr 1fr}nav{gap:9px}nav a{font-size:11px}}
+
+
+/* Analytics dashboard */
+.analytics-stats{grid-template-columns:repeat(5,1fr)}
+.positive{color:#087e55}.negative{color:#b42318}
+.analytics-note{margin:0 0 18px}
+.inventory-kpis{display:grid;gap:14px}
+.inventory-kpis div{display:flex;justify-content:space-between;gap:14px;border-bottom:1px solid var(--line);padding:10px 0}
+.inventory-kpis span{color:var(--muted);font-size:12px}
+.inventory-kpis b{font-size:14px;text-align:right}
+@media(max-width:950px){.analytics-stats{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:650px){.analytics-stats{grid-template-columns:repeat(2,1fr)}.inventory-kpis div{align-items:flex-start;flex-direction:column}.inventory-kpis b{text-align:left}}
