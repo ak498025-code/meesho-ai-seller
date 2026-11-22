@@ -3,6 +3,7 @@ from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from werkzeug.utils import secure_filename
 import pandas as pd
+from products import products_bp
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("DATABASE_PATH", os.path.join(APP_DIR, "seller_data.db"))
@@ -13,6 +14,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-before-deploying")
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
+app.register_blueprint(products_bp)
 
 REPORT_ALIASES = {
     "orders": ["order id", "order_id", "sub order no", "sub order id", "sub_order_num", "order number"],
