@@ -57,6 +57,30 @@ def analytics_page():
                    SUM(total_amount - quantity * COALESCE(cost_at_sale,0)) AS gross_profit
             FROM sales GROUP BY sku, product_name ORDER BY gross_profit DESC LIMIT 20
         """).fetchall()
+        marketplace_summary = con.execute("""
+            SELECT o.marketplace, COUNT(*) AS report_rows,
+                   COALESCE(SUM(o.quantity),0) AS units,
+                   COALESCE(SUM(o.sale_amount),0) AS revenue,
+                   COALESCE(SUM(o.quantity * p.purchase_cost),0) AS matched_cogs,
+                   COALESCE(SUM(o.sale_amount - o.quantity * p.purchase_cost),0) AS estimated_gross_profit,
+                   COUNT(*) FILTER (WHERE o.sku IS NULL OR p.id IS NULL) AS unmatched_cost_rows,
+                   COUNT(*) FILTER (WHERE o.sale_amount IS NULL) AS missing_amount_rows
+            FROM orders o
+            LEFT JOIN products p ON LOWER(TRIM(o.sku)) = LOWER(TRIM(p.sku))
+            GROUP BY o.marketplace ORDER BY revenue DESC NULLS LAST, o.marketplace
+        """).fetchall()
+        marketplace_products = con.execute("""
+            SELECT o.marketplace, COALESCE(o.sku,'—') AS sku,
+                   COALESCE(MAX(o.product_name), MAX(p.name), 'Unmapped product') AS product_name,
+                   COALESCE(SUM(o.quantity),0) AS units,
+                   COALESCE(SUM(o.sale_amount),0) AS revenue,
+                   COALESCE(SUM(o.quantity * p.purchase_cost),0) AS matched_cogs,
+                   COALESCE(SUM(o.sale_amount - o.quantity * p.purchase_cost),0) AS estimated_gross_profit
+            FROM orders o
+            LEFT JOIN products p ON LOWER(TRIM(o.sku)) = LOWER(TRIM(p.sku))
+            GROUP BY o.marketplace, o.sku
+            ORDER BY revenue DESC NULLS LAST LIMIT 30
+        """).fetchall()
         low_stock = con.execute("""
             SELECT sku, name, stock, reorder_level
             FROM products WHERE stock <= reorder_level ORDER BY stock ASC, name LIMIT 20
@@ -67,5 +91,6 @@ def analytics_page():
     return render_template(
         "analytics.html", summary=summary, daily=daily, monthly=monthly,
         by_channel=by_channel, by_product=by_product, low_stock=low_stock,
+        marketplace_summary=marketplace_summary, marketplace_products=marketplace_products,
         total_purchase=total_purchase, inventory=inventory
     )
