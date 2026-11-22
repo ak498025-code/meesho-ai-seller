@@ -105,13 +105,13 @@ def analytics_page():
                    COUNT(*) FILTER (WHERE amount IS NULL) AS missing_amount_rows
             FROM settlements
             WHERE marketplace <> 'Meesho'
-               OR NOT (raw_json::jsonb ? 'Sub Order No')
+               OR NOT (jsonb_exists(raw_json::jsonb, 'Sub Order No'))
                OR NULLIF(raw_json::jsonb ->> 'Sub Order No','') IS NOT NULL
             GROUP BY marketplace ORDER BY marketplace
         """).fetchall()
         settlement_types = con.execute("""
             SELECT marketplace,
-                   CASE WHEN marketplace='Meesho' AND raw_json::jsonb ? 'Live Order Status'
+                   CASE WHEN marketplace='Meesho' AND jsonb_exists(raw_json::jsonb, 'Live Order Status')
                         THEN COALESCE(NULLIF(raw_json::jsonb ->> 'Live Order Status',''),'Unclassified')
                         ELSE COALESCE(transaction_type,'Unclassified') END AS transaction_type,
                    COUNT(*) AS rows, COALESCE(SUM(amount),0) AS amount
@@ -170,7 +170,8 @@ def analytics_page():
         "analytics.html", summary=summary, daily=daily, monthly=monthly,
         by_channel=by_channel, by_product=by_product, low_stock=low_stock,
         marketplace_summary=marketplace_summary, marketplace_products=marketplace_products,
-        settlement_summary=settlement_summary, settlement_types=settlement_types,\n        meesho_details=meesho_details, meesho_orders=meesho_orders,
+        settlement_summary=settlement_summary, settlement_types=settlement_types,
+        meesho_details=meesho_details, meesho_orders=meesho_orders,
         total_purchase=total_purchase, inventory=inventory,
         recorded_profit=recorded_profit, expense_summary=expense_summary,
         expense_by_channel=expense_by_channel, recorded_net_profit=recorded_net_profit
