@@ -73,6 +73,9 @@ def init_db():
             raw_json TEXT, import_id BIGINT
         );
         """)
+        # Safe migrations for databases created by earlier app versions.
+        for table in ("imports", "orders", "returns", "settlements", "ads", "inventory"):
+            con.execute("ALTER TABLE " + table + " ADD COLUMN IF NOT EXISTS marketplace TEXT NOT NULL DEFAULT 'Meesho'")
 
 init_db()
 
@@ -126,7 +129,7 @@ def read_report(file_storage):
         raise ValueError("Please upload a CSV or Excel report.")
     return name, digest, df.fillna("")
 
-def stable_key(report_type, row, index):
+def stable_key(report_type, row, index, marketplace):
     key_fields = {
         "orders": ["sub order no", "sub order id", "order id", "order number"],
         "returns": ["return id", "sub order no", "sub order id", "order id"],
@@ -138,50 +141,52 @@ def stable_key(report_type, row, index):
     meaningful = [v for v in values if v]
     if not meaningful:
         meaningful = [str(index)]
-    return hashlib.sha256((report_type + "|" + "|".join(meaningful)).encode()).hexdigest()
+    return hashlib.sha256((marketplace + "|" + report_type + "|" + "|".join(meaningful)).encode()).hexdigest()
 
-def insert_row(con, typ, row, import_id, idx):
-    key = stable_key(typ, row, idx)
+def insert_row(con, typ, row, import_id, idx, marketplace):
+    key = stable_key(typ, row, idx, marketplace)
+    row = dict(row)
+    row["_marketplace"] = marketplace
     raw = json.dumps({str(k): str(v) for k, v in row.items()}, ensure_ascii=False)
     if typ == "orders":
         cur = con.execute("""INSERT INTO orders
-        (external_key,order_id,sub_order_id,sku,product_name,quantity,order_status,order_date,sale_amount,raw_json,import_id)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING""", (
+        (external_key,order_id,sub_order_id,sku,product_name,quantity,order_status,order_date,sale_amount,raw_json,import_id,marketplace)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING""", (
             key, first(row,"order id","order number"), first(row,"sub order no","sub order id"),
             first(row,"sku","supplier sku","product sku"), first(row,"product name","product"),
             as_num(first(row,"quantity","qty")), first(row,"order status","status"),
-            first(row,"order date","created date"), as_num(first(row,"supplier listed price","product price","sale amount","total amount")), raw, import_id))
+            first(row,"order date","created date","purchase date"), as_num(first(row,"supplier listed price","product price","sale amount","total amount","item total","order amount")), raw, import_id, marketplace))
     elif typ == "returns":
         cur = con.execute("""INSERT INTO returns
-        (external_key,order_id,sub_order_id,sku,return_status,return_reason,quantity,return_date,raw_json,import_id)
-        VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING""", (
+        (external_key,order_id,sub_order_id,sku,return_status,return_reason,quantity,return_date,raw_json,import_id,marketplace)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING""", (
             key, first(row,"order id"), first(row,"sub order no","sub order id"),
             first(row,"sku","supplier sku"), first(row,"return status","status"),
             first(row,"return reason","reason"), as_num(first(row,"quantity","qty")),
-            first(row,"return date","created date"), raw, import_id))
+            first(row,"return date","created date"), raw, import_id, marketplace))
     elif typ == "settlements":
         cur = con.execute("""INSERT INTO settlements
-        (external_key,transaction_id,order_id,sub_order_id,transaction_type,amount,transaction_date,raw_json,import_id)
-        VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING""", (
+        (external_key,transaction_id,order_id,sub_order_id,transaction_type,amount,transaction_date,raw_json,import_id,marketplace)
+        VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING""", (
             key, first(row,"transaction id","payment id","settlement id"), first(row,"order id"),
             first(row,"sub order no","sub order id"), first(row,"transaction type","type","description"),
             as_num(first(row,"amount","settlement amount","transaction amount","credit","debit")),
-            first(row,"transaction date","date","payment date"), raw, import_id))
+            first(row,"transaction date","date","payment date","settlement date"), raw, import_id, marketplace))
     elif typ == "ads":
         cur = con.execute("""INSERT INTO ads
-        (external_key,campaign_name,campaign_id,spend,impressions,clicks,attributed_sales,report_date,raw_json,import_id)
-        VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING""", (
+        (external_key,campaign_name,campaign_id,spend,impressions,clicks,attributed_sales,report_date,raw_json,import_id,marketplace)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING""", (
             key, first(row,"campaign name","campaign"), first(row,"campaign id"),
             as_num(first(row,"ad spend","advertisement cost","spend","cost")),
             as_num(first(row,"impressions")), as_num(first(row,"clicks")),
-            as_num(first(row,"attributed sales","sales","revenue")), first(row,"date","report date"), raw, import_id))
+            as_num(first(row,"attributed sales","sales","revenue")), first(row,"date","report date"), raw, import_id, marketplace))
     elif typ == "inventory":
         cur = con.execute("""INSERT INTO inventory
-        (external_key,sku,product_name,available_stock,price,raw_json,import_id)
-        VALUES (?,?,?,?,?,?,?) ON CONFLICT DO NOTHING""", (
+        (external_key,sku,product_name,available_stock,price,raw_json,import_id,marketplace)
+        VALUES (?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING""", (
             key, first(row,"sku","supplier sku","product sku"), first(row,"product name","product"),
             as_num(first(row,"available stock","stock","inventory","quantity")),
-            as_num(first(row,"price","selling price")), raw, import_id))
+            as_num(first(row,"price","selling price")), raw, import_id, marketplace))
     return cur.rowcount == 1
 
 @app.route("/")
@@ -202,6 +207,10 @@ def upload():
         return redirect(url_for("dashboard"))
     try:
         filename, digest, df = read_report(f)
+        marketplace = request.form.get("marketplace", "Meesho")
+        if marketplace not in {"Meesho", "Amazon", "Flipkart"}:
+            raise ValueError("Choose Meesho, Amazon or Flipkart.")
+        digest = hashlib.sha256((marketplace + "|" + digest).encode()).hexdigest()
         if df.empty:
             raise ValueError("The uploaded report has no data rows.")
         selected = request.form.get("report_type", "auto")
@@ -213,17 +222,17 @@ def upload():
             if exists:
                 flash("This exact file was already imported. Duplicate upload skipped.", "warning")
                 return redirect(url_for("dashboard"))
-            cur = con.execute("""INSERT INTO imports(filename,report_type,rows_seen,rows_added,rows_skipped,file_hash,imported_at)
-                VALUES(?,?,?,?,?,?,?) RETURNING id""",
-                (filename,typ,len(df),0,0,digest,datetime.now().isoformat(timespec="seconds")))
+            cur = con.execute("""INSERT INTO imports(filename,report_type,rows_seen,rows_added,rows_skipped,file_hash,imported_at,marketplace)
+                VALUES(?,?,?,?,?,?,?,?) RETURNING id""",
+                (filename,typ,len(df),0,0,digest,datetime.now().isoformat(timespec="seconds"),marketplace))
             import_id = cur.fetchone()["id"]
             added = 0
             for idx, series in df.iterrows():
-                if insert_row(con, typ, series.to_dict(), import_id, idx):
+                if insert_row(con, typ, series.to_dict(), import_id, idx, marketplace):
                     added += 1
             skipped = len(df) - added
             con.execute("UPDATE imports SET rows_added=?,rows_skipped=? WHERE id=?", (added,skipped,import_id))
-        flash(f"Imported {added} new {typ} rows. {skipped} duplicate rows skipped.", "success")
+        flash(f"Imported {added} new {marketplace} {typ} rows. {skipped} duplicate rows skipped.", "success")
     except Exception as e:
         flash(str(e), "error")
     return redirect(url_for("dashboard"))
