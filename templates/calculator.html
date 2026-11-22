@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero compact">
+  <div><p class="eyebrow">ORDER-LEVEL PROFIT TOOL</p><h1>Marketplace Net Profit Calculator</h1><p>Estimate what remains after product cost, marketplace charges, shipping, ads, packaging and return reserve.</p></div>
+  <div class="hero-icon">₹</div>
+</section>
+<div class="calculator-layout">
+  <section class="panel">
+    <div class="panel-head"><div><h2>Enter order details</h2><p class="muted">Change any value to update the result instantly.</p></div><span class="pill">INR</span></div>
+    <div class="form-grid">
+      <label>Selling price (₹)<input id="selling" type="number" min="0" step="0.01" value="399"></label>
+      <label>Product purchase cost (₹)<input id="cost" type="number" min="0" step="0.01" value="150"></label>
+      <label>Marketplace commission (%)<input id="commission" type="number" min="0" max="100" step="0.01" value="0"></label>
+      <label>Fixed / collection fees (₹)<input id="fixed" type="number" min="0" step="0.01" value="0"></label>
+      <label>Forward shipping (₹)<input id="shipping" type="number" min="0" step="0.01" value="60"></label>
+      <label>Packaging cost (₹)<input id="packaging" type="number" min="0" step="0.01" value="10"></label>
+      <label>Advertising cost per order (₹)<input id="ads" type="number" min="0" step="0.01" value="20"></label>
+      <label>Return / RTO loss reserve per order (₹)<input id="returns" type="number" min="0" step="0.01" value="0"></label>
+      <label>Non-creditable GST / tax cost (₹)<input id="tax" type="number" min="0" step="0.01" value="0"></label>
+    </div>
+    <p class="note">Enter only GST/tax that is genuinely not recoverable as input tax credit (ITC). Do not enter recoverable ITC here. Commission is estimated as a percentage of selling price; confirm the actual fee basis from your settlement statement.</p>
+    <div class="form-actions"><button type="button" id="resetCalc" class="button-secondary">Reset example</button></div>
+  </section>
+  <section class="panel result-panel">
+    <div class="panel-head"><div><h2>Estimated profit</h2><p class="muted">Per successfully delivered order</p></div></div>
+    <div class="profit-number" id="profit">₹159.00</div>
+    <div class="profit-caption" id="profitCaption">Estimated net profit per order</div>
+    <div class="result-lines">
+      <div><span>Marketplace commission</span><b id="commissionOut">₹0.00</b></div>
+      <div><span>Total costs including product</span><b id="expensesOut">₹240.00</b></div>
+      <div><span>Profit margin</span><b id="marginOut">39.85%</b></div>
+      <div><span>Break-even selling price</span><b id="breakEven">₹240.00</b></div>
+      <div><span>Suggested price for 20% margin</span><b id="targetPrice">₹300.00</b></div>
+    </div>
+    <p class="disclaimer">Planning estimate only, not an official Meesho fee quote or tax calculation. Actual settlements may include weight slabs, zone charges, reverse shipping, GST on fees, discounts, penalties and other adjustments. Include those costs in the fields above or in your return reserve where applicable.</p>
+  </section>
+</div>
+<script>
+(() => {
+ const ids = ["selling","cost","commission","fixed","shipping","packaging","ads","returns","tax"];
+ const defaults = {selling:399,cost:150,commission:0,fixed:0,shipping:60,packaging:10,ads:20,returns:0,tax:0};
+ const el = id => document.getElementById(id);
+ const money = n => "₹" + (Number.isFinite(n) ? n : 0).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2});
+ function calculate(){
+   const v = Object.fromEntries(ids.map(id => [id, Math.max(0, Number(el(id).value) || 0)]));
+   const commission = v.selling * v.commission / 100;
+   const costs = v.cost + commission + v.fixed + v.shipping + v.packaging + v.ads + v.returns + v.tax;
+   const profit = v.selling - costs;
+   const margin = v.selling > 0 ? profit / v.selling * 100 : 0;
+   const fixedCosts = v.cost + v.fixed + v.shipping + v.packaging + v.ads + v.returns + v.tax;
+   const denominator = 1 - v.commission/100;
+   const breakEven = denominator > 0 ? fixedCosts/denominator : 0;
+   const target = denominator > 0.2 ? fixedCosts/(denominator-0.2) : 0;
+   el("profit").textContent = money(profit);
+   el("profit").className = "profit-number " + (profit >= 0 ? "positive" : "negative");
+   el("profitCaption").textContent = profit >= 0 ? "Estimated net profit per order" : "Estimated loss per order";
+   el("commissionOut").textContent = money(commission);
+   el("expensesOut").textContent = money(costs);
+   el("marginOut").textContent = margin.toFixed(2) + "%";
+   el("breakEven").textContent = denominator > 0 ? money(breakEven) : "Not available";
+   el("targetPrice").textContent = denominator > 0.2 ? money(target) : "Not available";
+ }
+ ids.forEach(id => el(id).addEventListener("input",calculate));
+ el("resetCalc").addEventListener("click",()=>{ids.forEach(id=>el(id).value=defaults[id]);calculate();});
+ calculate();
+})();
+</script>
+{% endblock %}
