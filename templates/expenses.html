@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block content %}
+<section class="hero compact"><div><p class="eyebrow">BUSINESS COST REGISTER</p><h1>Expenses</h1><p>Record advertising, packaging, rent, utilities and other business costs.</p></div><a class="button-link" href="{{ url_for('expenses.new_expense') }}">+ Add expense</a></section>
+<section class="stats sales-stats">
+<article class="stat"><span>Expense entries</span><strong>{{ summary.count }}</strong></article>
+<article class="stat"><span>Total recorded expenses</span><strong>₹{{ "{:,.2f}".format(summary.total) }}</strong></article>
+<article class="stat"><span>Categories used</span><strong>{{ by_category|length }}</strong></article>
+</section>
+<section class="panel"><div class="panel-head"><div><p class="eyebrow">EXPENSE BREAKDOWN</p><h2>By category</h2></div></div>
+<div class="table-wrap"><table><thead><tr><th>Category</th><th>Total amount</th></tr></thead><tbody>
+{% for item in by_category %}<tr><td>{{ item.category }}</td><td><b>₹{{ "{:,.2f}".format(item.total) }}</b></td></tr>{% else %}<tr><td colspan="2" class="empty">No expenses recorded yet.</td></tr>{% endfor %}
+</tbody></table></div></section>
+<section class="panel"><div class="panel-head"><div><p class="eyebrow">EXPENSE REGISTER</p><h2>Recent expenses</h2><p class="muted">Latest 200 entries, with channel and category for profit reporting.</p></div></div>
+<div class="table-wrap"><table><thead><tr><th>Date</th><th>Channel</th><th>Category</th><th>Description</th><th>Amount</th></tr></thead><tbody>
+{% for e in expenses %}<tr><td>{{ e.expense_date }}</td><td>{{ e.channel }}</td><td>{{ e.category }}</td><td>{{ e.description or "—" }}</td><td><b>₹{{ "{:,.2f}".format(e.amount) }}</b></td></tr>{% else %}<tr><td colspan="5" class="empty">No expenses recorded yet. Click “Add expense” to begin.</td></tr>{% endfor %}
+</tbody></table></div></section>
+<div class="disclaimer">Important: Do not enter a marketplace fee again if that same fee is already reflected in your imported settlement report. Record only costs that are not already included in another report.</div>
+{% endblock %}
