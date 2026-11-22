@@ -106,11 +106,39 @@ def analytics_page():
             FROM settlements GROUP BY marketplace ORDER BY marketplace
         """).fetchall()
         settlement_types = con.execute("""
-            SELECT marketplace, COALESCE(transaction_type,'Unclassified') AS transaction_type,
+            SELECT marketplace,
+                   CASE WHEN marketplace='Meesho' AND raw_json::jsonb ? 'Live Order Status'
+                        THEN COALESCE(NULLIF(raw_json::jsonb ->> 'Live Order Status',''),'Unclassified')
+                        ELSE COALESCE(transaction_type,'Unclassified') END AS transaction_type,
                    COUNT(*) AS rows, COALESCE(SUM(amount),0) AS amount
-            FROM settlements GROUP BY marketplace, transaction_type
+            FROM settlements
+            WHERE marketplace <> 'Meesho'
+               OR NOT (raw_json::jsonb ? 'Sub Order No')
+               OR NULLIF(raw_json::jsonb ->> 'Sub Order No','') IS NOT NULL
+            GROUP BY marketplace, transaction_type, raw_json::jsonb ->> 'Live Order Status'
             ORDER BY marketplace, amount DESC
         """).fetchall()
+        meesho_details = con.execute("""
+            SELECT
+              COUNT(*) AS order_rows,
+              COUNT(*) FILTER (WHERE raw_json::jsonb ->> 'Live Order Status'='Delivered') AS delivered_orders,
+              COUNT(*) FILTER (WHERE raw_json::jsonb ->> 'Live Order Status'='RTO') AS rto_orders,
+              COALESCE(SUM(NULLIF(raw_json::jsonb ->> 'Total Sale Amount (Incl. Shipping & GST)','')::numeric),0) AS sale_amount,
+              COALESCE(SUM(NULLIF(raw_json::jsonb ->> 'Total Sale Return Amount (Incl. Shipping & GST)','')::numeric),0) AS sale_return_amount,
+              COALESCE(SUM(NULLIF(raw_json::jsonb ->> 'Shipping Charge (Incl. GST)','')::numeric),0) AS shipping_charge,
+              COALESCE(SUM(NULLIF(raw_json::jsonb ->> 'Return Shipping Charge (Incl. GST)','')::numeric),0) AS return_shipping_charge,
+              COALESCE(SUM(NULLIF(raw_json::jsonb ->> 'Fixed Fee (Incl. GST)','')::numeric),0) AS fixed_fee,
+              COALESCE(SUM(NULLIF(raw_json::jsonb ->> 'Warehousing fee (inc Gst)','')::numeric),0) AS warehousing_fee,
+              COALESCE(SUM(NULLIF(raw_json::jsonb ->> 'Meesho Commission (Incl. GST)','')::numeric),0) AS commission,
+              COALESCE(SUM(NULLIF(raw_json::jsonb ->> 'Meesho gold platform fee (Incl. GST)','')::numeric),0) AS gold_platform_fee,
+              COALESCE(SUM(NULLIF(raw_json::jsonb ->> 'Meesho mall platform fee (Incl. GST)','')::numeric),0) AS mall_platform_fee,
+              COALESCE(SUM(NULLIF(raw_json::jsonb ->> 'TCS','')::numeric),0) AS tcs,
+              COALESCE(SUM(NULLIF(raw_json::jsonb ->> 'TDS','')::numeric),0) AS tds,
+              COALESCE(SUM(NULLIF(raw_json::jsonb ->> 'Final Settlement Amount','')::numeric),0) AS final_settlement
+            FROM settlements
+            WHERE marketplace='Meesho'
+              AND NULLIF(raw_json::jsonb ->> 'Sub Order No','') IS NOT NULL
+        """).fetchone()
         low_stock = con.execute("""
             SELECT sku, name, stock, reorder_level
             FROM products WHERE stock <= reorder_level ORDER BY stock ASC, name LIMIT 20
@@ -122,7 +150,7 @@ def analytics_page():
         "analytics.html", summary=summary, daily=daily, monthly=monthly,
         by_channel=by_channel, by_product=by_product, low_stock=low_stock,
         marketplace_summary=marketplace_summary, marketplace_products=marketplace_products,
-        settlement_summary=settlement_summary, settlement_types=settlement_types,
+        settlement_summary=settlement_summary, settlement_types=settlement_types,\n        meesho_details=meesho_details,
         total_purchase=total_purchase, inventory=inventory,
         recorded_profit=recorded_profit, expense_summary=expense_summary,
         expense_by_channel=expense_by_channel, recorded_net_profit=recorded_net_profit
