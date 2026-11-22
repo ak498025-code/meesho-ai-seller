@@ -117,7 +117,7 @@ def analytics_page():
                    COUNT(*) AS rows, COALESCE(SUM(amount),0) AS amount
             FROM settlements
             WHERE marketplace <> 'Meesho'
-               OR NOT (raw_json::jsonb ? 'Sub Order No')
+               OR NOT (jsonb_exists(raw_json::jsonb, 'Sub Order No'))
                OR NULLIF(raw_json::jsonb ->> 'Sub Order No','') IS NOT NULL
             GROUP BY marketplace, transaction_type, raw_json::jsonb ->> 'Live Order Status'
             ORDER BY marketplace, amount DESC
