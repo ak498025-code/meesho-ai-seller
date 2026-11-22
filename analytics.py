@@ -143,6 +143,22 @@ def analytics_page():
             WHERE marketplace='Meesho'
               AND NULLIF(raw_json::jsonb ->> 'Sub Order No','') IS NOT NULL
         """).fetchone()
+        meesho_orders = con.execute("""
+            SELECT raw_json::jsonb ->> 'Sub Order No' AS sub_order_no,
+                   raw_json::jsonb ->> 'Product Name' AS product_name,
+                   raw_json::jsonb ->> 'Live Order Status' AS order_status,
+                   COALESCE(NULLIF(raw_json::jsonb ->> 'Total Sale Amount (Incl. Shipping & GST)','')::numeric,0) AS sale_amount,
+                   COALESCE(NULLIF(raw_json::jsonb ->> 'Total Sale Return Amount (Incl. Shipping & GST)','')::numeric,0) AS sale_return,
+                   COALESCE(NULLIF(raw_json::jsonb ->> 'Shipping Charge (Incl. GST)','')::numeric,0) AS shipping_charge,
+                   COALESCE(NULLIF(raw_json::jsonb ->> 'Return Shipping Charge (Incl. GST)','')::numeric,0) AS return_shipping,
+                   COALESCE(NULLIF(raw_json::jsonb ->> 'TCS','')::numeric,0) AS tcs,
+                   COALESCE(NULLIF(raw_json::jsonb ->> 'TDS','')::numeric,0) AS tds,
+                   COALESCE(NULLIF(raw_json::jsonb ->> 'Final Settlement Amount','')::numeric,0) AS final_settlement
+            FROM settlements
+            WHERE marketplace='Meesho'
+              AND NULLIF(raw_json::jsonb ->> 'Sub Order No','') IS NOT NULL
+            ORDER BY transaction_date, sub_order_no
+        """).fetchall()
         low_stock = con.execute("""
             SELECT sku, name, stock, reorder_level
             FROM products WHERE stock <= reorder_level ORDER BY stock ASC, name LIMIT 20
@@ -154,7 +170,7 @@ def analytics_page():
         "analytics.html", summary=summary, daily=daily, monthly=monthly,
         by_channel=by_channel, by_product=by_product, low_stock=low_stock,
         marketplace_summary=marketplace_summary, marketplace_products=marketplace_products,
-        settlement_summary=settlement_summary, settlement_types=settlement_types,\n        meesho_details=meesho_details,
+        settlement_summary=settlement_summary, settlement_types=settlement_types,\n        meesho_details=meesho_details, meesho_orders=meesho_orders,
         total_purchase=total_purchase, inventory=inventory,
         recorded_profit=recorded_profit, expense_summary=expense_summary,
         expense_by_channel=expense_by_channel, recorded_net_profit=recorded_net_profit
