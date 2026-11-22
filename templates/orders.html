@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero compact"><div><p class="eyebrow">ORDER OPERATIONS</p><h1>Orders & Returns</h1><p>Track order IDs, channels, dispatch progress, cancellations and returns across your sales channels.</p></div><a class="button-link" href="{{ url_for('order_manager.new_order') }}">+ New order</a></section>
+<div class="stats order-stats">
+<div class="stat"><span>Total orders</span><strong>{{ summary.total }}</strong></div>
+<div class="stat"><span>New</span><strong>{{ summary.new_count }}</strong></div>
+<div class="stat"><span>Shipped</span><strong>{{ summary.shipped_count }}</strong></div>
+<div class="stat"><span>Delivered</span><strong>{{ summary.delivered_count }}</strong></div>
+<div class="stat"><span>Cancelled / Returned</span><strong>{{ summary.issue_count }}</strong></div>
+</div>
+<section class="panel">
+<div class="panel-head"><div><h2>Order register</h2><p class="muted">Latest 300 orders. Use the status filter to narrow the list.</p></div>
+<form method="get"><select name="status" onchange="this.form.submit()"><option value="">All statuses</option>{% for s in statuses %}<option value="{{ s }}" {% if selected_status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></form></div>
+<div class="table-wrap"><table><thead><tr><th>Order ID</th><th>Channel</th><th>Product / SKU</th><th>Qty</th><th>Sale value</th><th>Status</th><th>Return / stock</th><th>Update</th></tr></thead><tbody>
+{% for o in orders %}
+<tr><td><b>{{ o.order_ref }}</b><small class="table-sub">{{ o.created_at[:10] }}</small></td><td>{{ o.channel }}</td><td>{{ o.product_name }}<small class="table-sub">{{ o.sku }}</small></td><td>{{ o.quantity }}</td><td>₹{{ '%.2f'|format(o.selling_price * o.quantity) }}</td><td><span class="tag {% if o.status in ['Cancelled','Returned'] %}warning{% endif %}">{{ o.status }}</span></td>
+<td>{% if o.status=='Returned' %}{{ o.return_reason or 'Reason not entered' }}<small class="table-sub">{% if o.stock_restored %}Stock restored{% else %}Not restored{% endif %}</small>{% else %}—{% endif %}</td>
+<td><form class="order-update" method="post" action="{{ url_for('order_manager.update_order',order_id=o.id) }}"><select name="status">{% for s in statuses %}<option value="{{ s }}" {% if o.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select><input name="return_reason" placeholder="Return reason" value="{{ o.return_reason or '' }}"><label class="inline-check"><input type="checkbox" name="return_to_stock" value="yes"> Returned item is sellable</label><button type="submit">Save</button></form></td></tr>
+{% else %}<tr><td colspan="8" class="empty">No orders recorded yet. Create your first order.</td></tr>{% endfor %}
+</tbody></table></div>
+<p class="note">Stock safety: an order deducts stock once. Cancellation restores stock once. A returned item is restored only if you tick “Returned item is sellable”. Marketplace-imported orders are kept separate until explicitly reconciled, preventing duplicate stock deductions.</p>
+</section>
+{% endblock %}
