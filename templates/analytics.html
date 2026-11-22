@@ -30,10 +30,32 @@
 {% for x in settlement_summary %}<tr><td><b>{{ x.marketplace or 'Meesho (legacy)' }}</b></td><td>{{ x.transaction_rows }}</td><td class="{% if x.net_movement < 0 %}negative{% else %}positive{% endif %}">₹{{ "{:,.2f}".format(x.net_movement) }}</td><td>{{ x.missing_amount_rows }}</td></tr>
 {% else %}<tr><td colspan="4" class="empty">No settlement reports imported yet. Import a Settlements / Payments report for each marketplace.</td></tr>{% endfor %}
 </tbody></table></div>
-<div class="panel-head" style="margin-top:22px"><div><p class="eyebrow">SETTLEMENT DETAILS</p><h2>Settlement transaction type breakdown</h2><p class="muted">Credits, deductions and other adjustment categories from the imported settlement report.</p></div></div>
-<div class="table-wrap"><table><thead><tr><th>Marketplace</th><th>Transaction type</th><th>Rows</th><th>Signed amount total</th></tr></thead><tbody>
-{% for x in settlement_types %}<tr><td>{{ x.marketplace or 'Meesho (legacy)' }}</td><td>{{ x.transaction_type }}</td><td>{{ x.rows }}</td><td>₹{{ "{:,.2f}".format(x.amount) }}</td></tr>
-{% else %}<tr><td colspan="4" class="empty">Transaction type breakdown will appear after settlement imports.</td></tr>{% endfor %}
+<div class="panel-head" style="margin-top:22px"><div><p class="eyebrow">MEESHO ORDER PAYMENT DETAILS</p><h2>Meesho settlement components</h2><p class="muted">Values are read from the matching named columns in the uploaded Order Payments sheet. Negative amounts are deductions or reversals.</p></div></div>
+<div class="stats analytics-stats">
+<article class="stat"><span>Order rows</span><strong>{{ meesho_details.order_rows }}</strong></article>
+<article class="stat"><span>Delivered</span><strong>{{ meesho_details.delivered_orders }}</strong></article>
+<article class="stat"><span>RTO</span><strong>{{ meesho_details.rto_orders }}</strong></article>
+<article class="stat"><span>Total sale amount</span><strong>₹{{ "{:,.2f}".format(meesho_details.sale_amount) }}</strong></article>
+<article class="stat"><span>Final settlement</span><strong>₹{{ "{:,.2f}".format(meesho_details.final_settlement) }}</strong></article>
+</div>
+<div class="table-wrap"><table><thead><tr><th>Component</th><th>Amount (₹)</th><th>Meaning</th></tr></thead><tbody>
+<tr><td>Total sale amount</td><td>₹{{ "{:,.2f}".format(meesho_details.sale_amount) }}</td><td>Sale amount including shipping and GST</td></tr>
+<tr><td>Sale return amount</td><td>₹{{ "{:,.2f}".format(meesho_details.sale_return_amount) }}</td><td>Returns / RTO reversal amount as supplied by Meesho</td></tr>
+<tr><td>Shipping charge</td><td>₹{{ "{:,.2f}".format(meesho_details.shipping_charge) }}</td><td>Shipping charge including GST</td></tr>
+<tr><td>Return shipping charge</td><td>₹{{ "{:,.2f}".format(meesho_details.return_shipping_charge) }}</td><td>Return shipping charge including GST</td></tr>
+<tr><td>Fixed fee</td><td>₹{{ "{:,.2f}".format(meesho_details.fixed_fee) }}</td><td>Fixed fee including GST</td></tr>
+<tr><td>Warehousing fee</td><td>₹{{ "{:,.2f}".format(meesho_details.warehousing_fee) }}</td><td>Warehousing fee including GST</td></tr>
+<tr><td>Meesho commission</td><td>₹{{ "{:,.2f}".format(meesho_details.commission) }}</td><td>Commission including GST</td></tr>
+<tr><td>Gold platform fee</td><td>₹{{ "{:,.2f}".format(meesho_details.gold_platform_fee) }}</td><td>Gold platform fee including GST</td></tr>
+<tr><td>Mall platform fee</td><td>₹{{ "{:,.2f}".format(meesho_details.mall_platform_fee) }}</td><td>Mall platform fee including GST</td></tr>
+<tr><td>TCS withheld</td><td>₹{{ "{:,.2f}".format(meesho_details.tcs) }}</td><td>Tax collected at source; track separately</td></tr>
+<tr><td>TDS withheld</td><td>₹{{ "{:,.2f}".format(meesho_details.tds) }}</td><td>Tax deducted at source; track separately</td></tr>
+<tr><td><b>Final settlement amount</b></td><td><b>₹{{ "{:,.2f}".format(meesho_details.final_settlement) }}</b></td><td>Final amount reported by Meesho</td></tr>
+</tbody></table></div>
+<div class="panel-head" style="margin-top:22px"><div><p class="eyebrow">ORDER-LEVEL RECONCILIATION</p><h2>Meesho order settlement</h2><p class="muted">One row per Sub Order No. The final settlement is taken directly from Meesho's report.</p></div></div>
+<div class="table-wrap"><table><thead><tr><th>Sub Order No</th><th>Status</th><th>Sale amount</th><th>Sale return</th><th>Shipping</th><th>Return shipping</th><th>TCS</th><th>TDS</th><th>Final settlement</th></tr></thead><tbody>
+{% for x in meesho_orders %}<tr><td><b>{{ x.sub_order_no }}</b></td><td>{{ x.order_status }}</td><td>₹{{ "{:,.2f}".format(x.sale_amount) }}</td><td>₹{{ "{:,.2f}".format(x.sale_return) }}</td><td>₹{{ "{:,.2f}".format(x.shipping_charge) }}</td><td>₹{{ "{:,.2f}".format(x.return_shipping) }}</td><td>₹{{ "{:,.2f}".format(x.tcs) }}</td><td>₹{{ "{:,.2f}".format(x.tds) }}</td><td><b>₹{{ "{:,.2f}".format(x.final_settlement) }}</b></td></tr>
+{% else %}<tr><td colspan="9" class="empty">No Meesho order-payment rows found in this settlement import.</td></tr>{% endfor %}
 </tbody></table></div>
 <div class="note"><b>Important:</b> Net settlement movement is the sum of signed amounts in the uploaded settlement rows. Credit/debit columns are normalized as credit minus debit. It is not automatically equal to profit or a bank payout: upload a complete settlement period and verify the marketplace's sign conventions and payout reference.</div>
 </section>
