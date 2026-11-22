@@ -9,6 +9,18 @@
 </section>
 <div class="note analytics-note"><b>Important:</b> Gross product profit = recorded sales value − product cost. It does not yet deduct marketplace commission, shipping, GST, advertising, packaging, refunds or other expenses. New sales save product cost at the time of sale. Older sales use the current average product cost as an estimate.</div>
 <section class="panel">
+<div class="panel-head"><div><p class="eyebrow">PAYMENT RECONCILIATION</p><h2>Marketplace settlement movements</h2><p class="muted">Imported settlement transactions grouped by marketplace.</p></div></div>
+<div class="table-wrap"><table><thead><tr><th>Marketplace</th><th>Transactions</th><th>Net settlement movement</th><th>Missing amounts</th></tr></thead><tbody>
+{% for x in settlement_summary %}<tr><td><b>{{ x.marketplace or 'Meesho (legacy)' }}</b></td><td>{{ x.transaction_rows }}</td><td class="{% if x.net_movement < 0 %}negative{% else %}positive{% endif %}">₹{{ "{:,.2f}".format(x.net_movement) }}</td><td>{{ x.missing_amount_rows }}</td></tr>
+{% else %}<tr><td colspan="4" class="empty">No settlement reports imported yet. Import a Settlements / Payments report for each marketplace.</td></tr>{% endfor %}
+</tbody></table></div>
+<div class="table-wrap"><table><thead><tr><th>Marketplace</th><th>Transaction type</th><th>Rows</th><th>Signed amount total</th></tr></thead><tbody>
+{% for x in settlement_types %}<tr><td>{{ x.marketplace or 'Meesho (legacy)' }}</td><td>{{ x.transaction_type }}</td><td>{{ x.rows }}</td><td>₹{{ "{:,.2f}".format(x.amount) }}</td></tr>
+{% else %}<tr><td colspan="4" class="empty">Transaction type breakdown will appear after settlement imports.</td></tr>{% endfor %}
+</tbody></table></div>
+<div class="note"><b>Important:</b> Net settlement movement is the sum of signed amounts in the uploaded settlement rows. Credit/debit columns are normalized as credit minus debit. It is not automatically equal to profit or a bank payout: upload a complete settlement period and verify the marketplace's sign conventions and payout reference.</div>
+</section>
+<section class="panel">
 <div class="panel-head"><div><p class="eyebrow">IMPORTED MARKETPLACE REPORTS</p><h2>Marketplace-wise sales & estimated gross profit</h2><p class="muted">Meesho, Amazon and Flipkart report rows, matched to product costs using SKU.</p></div></div>
 <div class="table-wrap"><table><thead><tr><th>Marketplace</th><th>Report rows</th><th>Units</th><th>Revenue</th><th>Matched product cost</th><th>Estimated gross profit</th><th>Cost mapping gaps</th></tr></thead><tbody>
 {% for x in marketplace_summary %}<tr><td><b>{{ x.marketplace or 'Meesho (legacy)' }}</b></td><td>{{ x.report_rows }}</td><td>{{ x.units }}</td><td>₹{{ "{:,.2f}".format(x.revenue) }}</td><td>₹{{ "{:,.2f}".format(x.matched_cogs) }}</td><td class="{% if x.estimated_gross_profit < 0 %}negative{% else %}positive{% endif %}">₹{{ "{:,.2f}".format(x.estimated_gross_profit) }}</td><td>{{ x.unmatched_cost_rows }} unmatched · {{ x.missing_amount_rows }} missing amount</td></tr>
