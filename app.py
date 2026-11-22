@@ -136,7 +136,7 @@ def read_report(file_storage):
             df = pd.read_excel(excel, sheet_name="Order Payments", header=1, dtype=str)
             df = df.dropna(how="all")
             if "Sub Order No" in df.columns:
-                df = df[df["Sub Order No"].astype(str).str.strip().ne("")]
+                df = df[df["Sub Order No"].notna() & df["Sub Order No"].astype(str).str.strip().ne("") & df["Sub Order No"].astype(str).str.lower().ne("nan")]
         else:
             # For other Excel formats, use the first worksheet as before.
             df = pd.read_excel(excel, sheet_name=0, dtype=str)
