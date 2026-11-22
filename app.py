@@ -26,7 +26,7 @@ app.register_blueprint(calculator_bp)
 app.register_blueprint(orders_bp)
 
 REPORT_ALIASES = {
-    "orders": ["order id", "order_id", "sub order no", "sub order id", "sub_order_num", "order number"],
+    "orders": ["order id", "amazon order id", "merchant order id", "order item id", "sub order no", "sub order id", "sub_order_num", "order number"],
     "returns": ["return id", "return_id", "sub order no", "sub order id", "order id"],
     "settlements": ["settlement id", "payment id", "transaction id", "sub order no", "order id"],
     "ads": ["campaign", "campaign name", "ad spend", "advertisement cost", "spend"],
@@ -109,7 +109,7 @@ def detect_report(columns):
         return "settlements"
     if c.intersection({"available stock", "inventory", "stock", "supplier sku"}):
         return "inventory"
-    if c.intersection({"order id", "sub order no", "sub order id", "order number"}):
+    if c.intersection({"order id", "amazon order id", "merchant order id", "order item id", "sub order no", "sub order id", "order number"}):
         return "orders"
     return "unknown"
 
@@ -131,8 +131,8 @@ def read_report(file_storage):
 
 def stable_key(report_type, row, index, marketplace):
     key_fields = {
-        "orders": ["sub order no", "sub order id", "order id", "order number"],
-        "returns": ["return id", "sub order no", "sub order id", "order id"],
+        "orders": ["sub order no", "sub order id", "order item id", "amazon order id", "merchant order id", "order id", "order number"],
+        "returns": ["return id", "return authorization id", "sub order no", "sub order id", "order item id", "amazon order id", "order id"],
         "settlements": ["transaction id", "payment id", "settlement id", "sub order no", "order id"],
         "ads": ["campaign id", "campaign name", "date", "report date"],
         "inventory": ["sku", "supplier sku", "product sku", "catalogue id"]
@@ -141,7 +141,8 @@ def stable_key(report_type, row, index, marketplace):
     meaningful = [v for v in values if v]
     if not meaningful:
         meaningful = [str(index)]
-    return hashlib.sha256((marketplace + "|" + report_type + "|" + "|".join(meaningful)).encode()).hexdigest()
+    prefix = "" if marketplace == "Meesho" else marketplace + "|"
+    return hashlib.sha256((prefix + report_type + "|" + "|".join(meaningful)).encode()).hexdigest()
 
 def insert_row(con, typ, row, import_id, idx, marketplace):
     key = stable_key(typ, row, idx, marketplace)
@@ -152,10 +153,10 @@ def insert_row(con, typ, row, import_id, idx, marketplace):
         cur = con.execute("""INSERT INTO orders
         (external_key,order_id,sub_order_id,sku,product_name,quantity,order_status,order_date,sale_amount,raw_json,import_id,marketplace)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING""", (
-            key, first(row,"order id","order number"), first(row,"sub order no","sub order id"),
-            first(row,"sku","supplier sku","product sku"), first(row,"product name","product"),
-            as_num(first(row,"quantity","qty")), first(row,"order status","status"),
-            first(row,"order date","created date","purchase date"), as_num(first(row,"supplier listed price","product price","sale amount","total amount","item total","order amount")), raw, import_id, marketplace))
+            key, first(row,"order id","amazon order id","merchant order id","order item id","order number"), first(row,"sub order no","sub order id","order item id"),
+            first(row,"sku","seller sku","supplier sku","product sku"), first(row,"product name","product","product title"),
+            as_num(first(row,"quantity","qty","quantity purchased")), first(row,"order status","status"),
+            first(row,"order date","created date","purchase date"), as_num(first(row,"supplier listed price","product price","sale amount","total amount","item total","order amount","item price")), raw, import_id, marketplace))
     elif typ == "returns":
         cur = con.execute("""INSERT INTO returns
         (external_key,order_id,sub_order_id,sku,return_status,return_reason,quantity,return_date,raw_json,import_id,marketplace)
@@ -210,7 +211,8 @@ def upload():
         marketplace = request.form.get("marketplace", "Meesho")
         if marketplace not in {"Meesho", "Amazon", "Flipkart"}:
             raise ValueError("Choose Meesho, Amazon or Flipkart.")
-        digest = hashlib.sha256((marketplace + "|" + digest).encode()).hexdigest()
+        if marketplace != "Meesho":
+            digest = hashlib.sha256((marketplace + "|" + digest).encode()).hexdigest()
         if df.empty:
             raise ValueError("The uploaded report has no data rows.")
         selected = request.form.get("report_type", "auto")
