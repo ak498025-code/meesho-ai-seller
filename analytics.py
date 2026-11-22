@@ -103,7 +103,11 @@ def analytics_page():
             SELECT marketplace, COUNT(*) AS transaction_rows,
                    COALESCE(SUM(amount),0) AS net_movement,
                    COUNT(*) FILTER (WHERE amount IS NULL) AS missing_amount_rows
-            FROM settlements GROUP BY marketplace ORDER BY marketplace
+            FROM settlements
+            WHERE marketplace <> 'Meesho'
+               OR NOT (raw_json::jsonb ? 'Sub Order No')
+               OR NULLIF(raw_json::jsonb ->> 'Sub Order No','') IS NOT NULL
+            GROUP BY marketplace ORDER BY marketplace
         """).fetchall()
         settlement_types = con.execute("""
             SELECT marketplace,
