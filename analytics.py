@@ -103,6 +103,7 @@ def analytics_page():
     return render_template(
         "analytics.html", summary=summary, daily=daily, monthly=monthly,
         by_channel=by_channel, by_product=by_product, low_stock=low_stock,
-        marketplace_summary=marketplace_summary, marketplace_products=marketplace_products,\n        settlement_summary=settlement_summary, settlement_types=settlement_types,
+        marketplace_summary=marketplace_summary, marketplace_products=marketplace_products,
+        settlement_summary=settlement_summary, settlement_types=settlement_types,
         total_purchase=total_purchase, inventory=inventory
     )
