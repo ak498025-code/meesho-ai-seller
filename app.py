@@ -126,10 +126,24 @@ def read_report(file_storage):
         except UnicodeDecodeError:
             df = pd.read_csv(io.BytesIO(raw), dtype=str, encoding="latin-1")
     elif ext in ("xlsx", "xls"):
-        df = pd.read_excel(io.BytesIO(raw), dtype=str)
+        # Meesho's payment workbook starts with a disclaimer sheet.
+        # The actual transaction table is on "Order Payments", with
+        # grouped headings in row 1 and column names in row 2.
+        excel = pd.ExcelFile(io.BytesIO(raw))
+        if "Order Payments" in excel.sheet_names:
+            df = pd.read_excel(excel, sheet_name="Order Payments", header=1, dtype=str)
+            df = df.dropna(how="all")
+            if "Sub Order No" in df.columns:
+                df = df[df["Sub Order No"].astype(str).str.strip().ne("")]
+        else:
+            # For other Excel formats, use the first worksheet as before.
+            df = pd.read_excel(excel, sheet_name=0, dtype=str)
     else:
         raise ValueError("Please upload a CSV or Excel report.")
-    return name, digest, df.fillna("")
+    df = df.fillna("")
+    if df.empty:
+        raise ValueError("The selected report sheet has no transaction rows.")
+    return name, digest, df
 
 def stable_key(report_type, row, index, marketplace):
     key_fields = {
@@ -151,7 +165,7 @@ def settlement_amount(row):
     debit = as_num(first(row, "debit", "debit amount", "debited amount"))
     if credit is not None or debit is not None:
         return (credit or 0) - (debit or 0)
-    return as_num(first(row, "amount", "settlement amount", "transaction amount", "net amount"))
+    return as_num(first(row, "final settlement amount", "amount", "settlement amount", "transaction amount", "net amount"))
 
 def insert_row(con, typ, row, import_id, idx, marketplace):
     key = stable_key(typ, row, idx, marketplace)
@@ -179,7 +193,7 @@ def insert_row(con, typ, row, import_id, idx, marketplace):
         (external_key,transaction_id,order_id,sub_order_id,transaction_type,amount,transaction_date,raw_json,import_id,marketplace)
         VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING""", (
             key, first(row,"transaction id","payment id","settlement id"), first(row,"order id"),
-            first(row,"sub order no","sub order id"), first(row,"transaction type","type","description"),
+            first(row,"sub order no","sub order id"), first(row,"transaction type","type","description","price type","live order status"),
             settlement_amount(row),
             first(row,"transaction date","date","payment date","settlement date"), raw, import_id, marketplace))
     elif typ == "ads":
