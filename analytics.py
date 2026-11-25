@@ -119,7 +119,10 @@ def analytics_page():
             WHERE marketplace <> 'Meesho'
                OR NOT (jsonb_exists(raw_json::jsonb, 'Sub Order No'))
                OR NULLIF(raw_json::jsonb ->> 'Sub Order No','') IS NOT NULL
-            GROUP BY marketplace, transaction_type, raw_json::jsonb ->> 'Live Order Status'
+            GROUP BY marketplace,
+                     CASE WHEN marketplace='Meesho' AND jsonb_exists(raw_json::jsonb, 'Live Order Status')
+                          THEN COALESCE(NULLIF(raw_json::jsonb ->> 'Live Order Status',''),'Unclassified')
+                          ELSE COALESCE(transaction_type,'Unclassified') END
             ORDER BY marketplace, amount DESC
         """).fetchall()
         meesho_details = con.execute("""
